@@ -1,0 +1,136 @@
+module syn_fifo(input [7:0]din,input wr_en,rd_en,clk,rst,full,empty,output reg [7:0]dout);
+  reg [7:0]wr_ptr;
+  reg [7:0]rd_ptr;
+  reg [7:0]fifo;
+  always @(posedge clk)begin
+    if(!rst)begin
+      wr_ptr<=0;
+    end else begin
+      if(wr_en && !full)begin
+        fifo[wr_ptr]<=din;
+        wr_ptr<=wr_ptr+1;
+    end     
+  end
+  end
+  initial
+    begin
+      $monitor("the current value of wr_en is %0d and rd_en is %0d and  wr_ptr is at index :%0d and rd_ptr is at index %0d  input element are din od %0d current full is %0d and empty :%0d  ");
+    end
+  always @(posedge clk)begin
+    if(!rst )begin
+      rd_ptr<=1'b0;
+    end else begin
+      if(!empty && rd_en)begin
+        dout<=fifo[rd_ptr];
+        rd_ptr<=rd_ptr+1;
+      end
+    end
+  end
+  assign empty=wr_ptr==rd_ptr;
+  assign full=(wr_ptr+1)==rd_ptr;
+endmodule
+
+
+
+
+
+
+//testbench 
+
+
+
+
+
+`timescale 1ns / 1ps
+
+module tb_fifo();
+
+  reg        clk;
+  reg        rst;
+  reg        wr_en;
+  reg        rd_en;
+  reg  [7:0] din;
+
+  wire [7:0] dout;
+  wire       full;
+  wire       empty;
+
+  reg  [7:0] rdata;
+
+  syn_fifo fft (
+    .din   (din),
+    .wr_en (wr_en),
+    .rd_en (rd_en),
+    .clk   (clk),
+    .rst   (rst),
+    .full  (full),
+    .empty (empty),
+    .dout  (dout)
+  );
+
+  always #10 clk = ~clk;
+
+  initial begin
+    clk   = 0;
+    rst   = 0;   
+    wr_en = 0;
+    rd_en = 0;
+    din   = 8'h00;
+    rdata = 8'h00;
+
+    #40;
+    @(posedge clk);
+    rst <= 1;    
+    $display("[%0t] Reset released! FIFO is ready.", $time);
+  end
+
+  initial begin
+    wait (rst == 1);
+    @(posedge clk);
+
+    for (int i = 0; i < 20; i = i + 1) begin
+      while (full) begin
+        wr_en <= 0;
+        @(posedge clk);
+      end
+
+      wr_en <= 1'b1;
+      din   <= $random;
+      @(posedge clk);
+      #1; 
+      $display("[%0t] WRITE: din=0x%02h, wr_en=%0d, full=%0b, empty=%0b", $time, din, wr_en, full, empty);
+    end
+
+    @(posedge clk);
+    wr_en <= 0;
+    din   <= 8'h00;
+  end
+
+  initial begin
+    wait (rst == 1);
+    @(posedge clk);
+
+    repeat (20) begin
+      while (empty) begin
+        rd_en <= 0;
+        @(posedge clk);
+      end
+
+      rd_en <= 1'b1;
+      @(posedge clk);
+      #1; 
+      rdata <= dout;
+      $display("[%0t] READ : rdata=0x%02h, rd_en=%0d, empty=%0b", $time, dout, rd_en, empty);
+    end
+
+    @(posedge clk);
+    rd_en <= 0;
+  end
+
+  initial begin
+    #1000;
+    $display("[%0t] Simulation Finished!", $time);
+    $finish;
+  end
+
+endmodule
